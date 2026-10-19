@@ -1,0 +1,48 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+		97E8116D115061DDAB457ECF = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/QuietBar/AccessibilityInventory.swift"; sourceTree = "<group>"; };
+		FB315BD0DA8E684F83C4E185 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/QuietBar/GlobalShortcut.swift"; sourceTree = "<group>"; };
+		734BAF6FD05651B2D6F4AA10 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/QuietBar/NativeVisibilityDriver.swift"; sourceTree = "<group>"; };
+		92EAD9C619ED2F01E5A5447F = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/QuietBar/Preferences.swift"; sourceTree = "<group>"; };
+		CA037280645140FC0FA9C751 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/QuietBar/PreferencesView.swift"; sourceTree = "<group>"; };
+		6087EBE8D309E5C7EA4DD945 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/QuietBar/QuietBarApp.swift"; sourceTree = "<group>"; };
+		700669CA10AE87F9876A352E = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/QuietBar/StatusBarController.swift"; sourceTree = "<group>"; };
+		9CDB5FD4D8F1BAFEC03408FF = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/QuietBarCore/Layout.swift"; sourceTree = "<group>"; };
+		3B41C92789B29E6D16CEDA97 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/QuietBarCore/VisibilitySession.swift"; sourceTree = "<group>"; };
+		17372BAC511A0BE701159AD6 = { isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "Native/VisibilityBridge.m"; sourceTree = "<group>"; };
+		67DCC6E92F6D8A9B1A52417C = { isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Native/VisibilityBridge.h"; sourceTree = "<group>"; };
+		68E77A9D7BC78A97D4F4E27B = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info.plist"; sourceTree = "<group>"; };
+		BCFA14070C8F570C520EF850 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Package.swift"; sourceTree = "<group>"; };
+		6550EE2942CEAF5A9D580A07 = { isa = PBXFileReference; lastKnownFileType = image.icns; path = "Resources/AppIcon.icns"; sourceTree = "<group>"; };
+		E32E2E89F153E497FCA507D3 = { isa = PBXBuildFile; fileRef = 97E8116D115061DDAB457ECF; };
+		E60F97E10B3DA778FB69EFA2 = { isa = PBXBuildFile; fileRef = FB315BD0DA8E684F83C4E185; };
+		CB319FFDA227339CDDCAE5A7 = { isa = PBXBuildFile; fileRef = 734BAF6FD05651B2D6F4AA10; };
+		87FBA74362A4316B464CDFAE = { isa = PBXBuildFile; fileRef = 92EAD9C619ED2F01E5A5447F; };
+		22A6A2F36246E49DE0D87CD0 = { isa = PBXBuildFile; fileRef = CA037280645140FC0FA9C751; };
+		74C767DA6E84DAD5DA149838 = { isa = PBXBuildFile; fileRef = 6087EBE8D309E5C7EA4DD945; };
+		4EB712B129D54F352E064F4D = { isa = PBXBuildFile; fileRef = 700669CA10AE87F9876A352E; };
+		292CC3E187A39663F89ACA46 = { isa = PBXBuildFile; fileRef = 9CDB5FD4D8F1BAFEC03408FF; };
+		3974B9CEA935A43B4FF5ABD8 = { isa = PBXBuildFile; fileRef = 3B41C92789B29E6D16CEDA97; };
+		9190BC9F5491B69F4094B04B = { isa = PBXBuildFile; fileRef = 17372BAC511A0BE701159AD6; };
+		38A007151ABE87CC01A5B6E9 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Quiet Bar.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E50290A24C49A459B43487C5 = { isa = PBXGroup; children = (97E8116D115061DDAB457ECF, FB315BD0DA8E684F83C4E185, 734BAF6FD05651B2D6F4AA10, 92EAD9C619ED2F01E5A5447F, CA037280645140FC0FA9C751, 6087EBE8D309E5C7EA4DD945, 700669CA10AE87F9876A352E, 9CDB5FD4D8F1BAFEC03408FF, 3B41C92789B29E6D16CEDA97, 17372BAC511A0BE701159AD6, 67DCC6E92F6D8A9B1A52417C, 68E77A9D7BC78A97D4F4E27B, BCFA14070C8F570C520EF850, 6550EE2942CEAF5A9D580A07, 328EC33DF3954DC9B83FA285,); sourceTree = "<group>"; };
+		328EC33DF3954DC9B83FA285 = { isa = PBXGroup; children = (38A007151ABE87CC01A5B6E9,); name = Products; sourceTree = "<group>"; };
+		4E57AE888889001C06A4F7E8 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (E32E2E89F153E497FCA507D3, E60F97E10B3DA778FB69EFA2, CB319FFDA227339CDDCAE5A7, 87FBA74362A4316B464CDFAE, 22A6A2F36246E49DE0D87CD0, 74C767DA6E84DAD5DA149838, 4EB712B129D54F352E064F4D, 292CC3E187A39663F89ACA46, 3974B9CEA935A43B4FF5ABD8, 9190BC9F5491B69F4094B04B,); runOnlyForDeploymentPostprocessing = 0; };
+		69BE8A4D8E4D9DA4E7DB3928 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		025A7DAC3FD4FDDE83971CD7 = { isa = PBXBuildFile; fileRef = 6550EE2942CEAF5A9D580A07; };
+		D6C9E8A172005E68A1DD674F = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (025A7DAC3FD4FDDE83971CD7,); runOnlyForDeploymentPostprocessing = 0; };
+		89E1FD6268CC0F221A2BE178 = { isa = XCBuildConfiguration; buildSettings = { CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; MACOSX_DEPLOYMENT_TARGET = 13.0; SDKROOT = macosx; SWIFT_VERSION = 5.0; SWIFT_STRICT_CONCURRENCY = targeted; GCC_C_LANGUAGE_STANDARD = gnu17; CLANG_WARN_DOCUMENTATION_COMMENTS = YES; GCC_WARN_UNUSED_VARIABLE = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; GCC_OPTIMIZATION_LEVEL = 0; DEBUG_INFORMATION_FORMAT = dwarf; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; }; name = Debug; };
+		E6DE6C99132752C914FEF632 = { isa = XCBuildConfiguration; buildSettings = { CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; MACOSX_DEPLOYMENT_TARGET = 13.0; SDKROOT = macosx; SWIFT_VERSION = 5.0; SWIFT_STRICT_CONCURRENCY = targeted; GCC_C_LANGUAGE_STANDARD = gnu17; CLANG_WARN_DOCUMENTATION_COMMENTS = YES; GCC_WARN_UNUSED_VARIABLE = YES; SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_COMPILATION_MODE = wholemodule; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; }; name = Release; };
+		49EA05A46B1A86EA7E413B43 = { isa = XCConfigurationList; buildConfigurations = (89E1FD6268CC0F221A2BE178, E6DE6C99132752C914FEF632,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		E9B2E96ABC5F6856F2BE79CF = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Manual; CODE_SIGN_IDENTITY = "-"; DEVELOPMENT_TEAM = ""; ENABLE_APP_SANDBOX = NO; ENABLE_HARDENED_RUNTIME = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Info.plist; PRODUCT_BUNDLE_IDENTIFIER = local.quietbar.app; PRODUCT_NAME = "Quiet Bar"; SWIFT_OBJC_BRIDGING_HEADER = Native/VisibilityBridge.h; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks"; COMBINE_HIDPI_IMAGES = YES;  }; name = Debug; };
+		5A8C91857F674E16E2724F47 = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Manual; CODE_SIGN_IDENTITY = "-"; DEVELOPMENT_TEAM = ""; ENABLE_APP_SANDBOX = NO; ENABLE_HARDENED_RUNTIME = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Info.plist; PRODUCT_BUNDLE_IDENTIFIER = local.quietbar.app; PRODUCT_NAME = "Quiet Bar"; SWIFT_OBJC_BRIDGING_HEADER = Native/VisibilityBridge.h; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks"; COMBINE_HIDPI_IMAGES = YES;  }; name = Release; };
+		8A8642C6B28662881237D956 = { isa = XCConfigurationList; buildConfigurations = (E9B2E96ABC5F6856F2BE79CF, 5A8C91857F674E16E2724F47,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		0E8A3AD980EC179856012B7E = { isa = PBXNativeTarget; buildConfigurationList = 8A8642C6B28662881237D956; buildPhases = (4E57AE888889001C06A4F7E8, 69BE8A4D8E4D9DA4E7DB3928, D6C9E8A172005E68A1DD674F,); buildRules = (); dependencies = (); name = QuietBar; productName = "Quiet Bar"; productReference = 38A007151ABE87CC01A5B6E9; productType = "com.apple.product-type.application"; };
+		98F54143AB4E86B28C3AFEE0 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 2700; TargetAttributes = { 0E8A3AD980EC179856012B7E = { CreatedOnToolsVersion = 27.0; }; }; }; buildConfigurationList = 49EA05A46B1A86EA7E413B43; compatibilityVersion = "Xcode 14.0"; developmentRegion = ko; hasScannedForEncodings = 0; knownRegions = (ko, en, Base,); mainGroup = E50290A24C49A459B43487C5; productRefGroup = 328EC33DF3954DC9B83FA285; projectDirPath = ""; projectRoot = ""; targets = (0E8A3AD980EC179856012B7E,); };
+	};
+	rootObject = 98F54143AB4E86B28C3AFEE0;
+}
