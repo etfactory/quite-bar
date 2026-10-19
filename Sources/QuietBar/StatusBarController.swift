@@ -56,6 +56,16 @@ import QuietBarCore
         updatePermanentItem()
         session.onChange = { [weak self] in
             guard let self else { return }
+            if self.session.lastError != nil {
+                // A failed owner refresh must also invalidate older AX reads.
+                self.cancelDragUpdate()
+                self.operation += 1
+                self.timer?.invalidate()
+                self.timer = nil
+                self.arranging = true
+                self.layout = nil
+                self.releaseMenuBarSpace()
+            }
             self.busy = self.session.state == .applying
             // Keep the last committed presentation while a replacement lease is
             // pending. Restore the markers only once expansion actually succeeds.
@@ -75,14 +85,14 @@ import QuietBarCore
                 Task { @MainActor in self?.environmentChanged("디스플레이가 바뀌어 전체 표시로 복원했습니다. 배치를 확인한 뒤 다시 접어 주세요.") }
             })
         let workspace = NSWorkspace.shared.notificationCenter
-        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
-            observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+        // Refresh only the allow list; launches and exits keep the user's layout.
+        observers.append(workspace.addObserver(forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in
-                    guard let self, self.collapsed || self.session.state == .partial || self.busy else { return }
-                    self.environmentChanged("실행 중인 앱이 바뀌어 전체 표시로 복원했습니다. 화살표를 눌러 다시 접으세요.")
+                    guard let self, self.native else { return }
+                    self.session.refreshRunningBundles(AccessibilityInventory.runningBundles)
                 }
             })
-        }
         observers.append(workspace.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.revealAll() }
         })
