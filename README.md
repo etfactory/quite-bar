@@ -1,15 +1,16 @@
 # Quiet Bar
 
-Swift로 작성한 macOS 메뉴 막대 정리 앱입니다. Hidden Bar처럼 **⌘ 키를 누르고 아이콘과 구분선을 드래그해 숨길 범위를 정합니다.** 설정 화면은 SwiftUI, 메뉴 막대는 AppKit으로 구성했습니다.
+Swift로 작성한 macOS 메뉴 막대 정리 앱입니다. **⌘ 키를 누르고 아이콘과 구분선을 드래그해 숨길 범위를 정합니다.**
 
-개인용 초기 구현 `0.1.3`입니다. macOS 27 Golden Gate의 변경에 대응하는 엔진을 포함합니다. ⌘-드래그한 배치를 버튼 없이 반영하며, 설정과 정보 화면을 간결한 한국어 UI로 구성했습니다. 이전 버전의 실제 접기·복원 결과와 이번 변경의 검증 범위는 [테스트 기록](docs/TESTING.md)을 참조하세요.
+현재 버전은 `0.1.3`입니다. macOS 13 이상을 대상으로 하며, macOS 27에서 빌드와 일부 실제 동작을 확인했습니다. 지원 범위와 확인하지 않은 항목은 [테스트 기록](docs/TESTING.md)을 참고하세요.
 
 ## 빠른 시작
 
 필요 환경: macOS 13 이상, Swift 6.0 이상을 제공하는 Xcode. 이 프로젝트는 Xcode 27 / Swift 6.4 / macOS 27.0.1에서 빌드했습니다. 외부 패키지 다운로드는 없습니다.
 
 ```bash
-cd /Users/factory/Documents/Projects/QuietBar
+git clone https://github.com/etfactory/quite-bar.git QuietBar
+cd QuietBar
 open QuietBar.xcodeproj
 ```
 
@@ -20,7 +21,7 @@ Xcode에서 `QuietBar` 스킴과 `My Mac`을 선택해 빌드할 수 있습니�
 open build
 ```
 
-Finder에서 `Quiet Bar.app`을 응용 프로그램 폴더로 드래그하고 실행합니다. macOS 27에서는 앱 안의 **권한 설정 열기**로 이동해 **개인정보 보호 및 보안 → 기기 제어 및 데이터 접근 → Quiet Bar**를 허용합니다(이전 OS 명칭: 손쉬운 사용). 스위치가 켜져 있어도 앱의 권한 안내가 사라지지 않으면 Quiet Bar의 기존 항목을 제거한 뒤 앱의 버튼으로 다시 등록·허용합니다. [관련 해결 절차](docs/TROUBLESHOOTING.md)를 참고하세요. 기존 Hidden Bar 등 다른 메뉴 막대 관리 앱은 함께 사용하지 않는 편이 배치를 확인하기 쉽습니다.
+`Quiet Bar.app`을 응용 프로그램 폴더로 옮겨 실행합니다. macOS 27에서는 앱 안의 **권한 설정 열기**로 이동해 **개인정보 보호 및 보안 → 기기 제어 및 데이터 접근 → Quiet Bar**를 허용합니다(이전 OS 명칭: 손쉬운 사용). 스위치가 켜져 있어도 앱의 권한 안내가 사라지지 않으면 Quiet Bar의 기존 항목을 제거한 뒤 앱의 버튼으로 다시 등록·허용합니다. [관련 해결 절차](docs/TROUBLESHOOTING.md)를 참고하세요.
 
 ## 사용 방법
 
@@ -59,13 +60,13 @@ Finder에서 `Quiet Bar.app`을 응용 프로그램 폴더로 드래그하고 �
 
 ## macOS 27에서 알아둘 점
 
-- 기존 `NSStatusItem.length` 확장 기법을 macOS 27에서는 사용하지 않습니다. 위치는 Accessibility로 읽고 비공개 `MenuBarClientCore` API로 숨김을 적용합니다.
+- 기존 `NSStatusItem.length` 확장 기법을 macOS 27에서는 사용하지 않습니다. 위치는 Accessibility로 읽고 `MenuBarClientCore` 시스템 인터페이스로 숨김을 적용합니다.
 - **App Sandbox를 사용하지 않는 로컬 앱**입니다. 현재 방식은 App Store 배포 대상으로 설계하지 않았습니다.
 - 같은 앱이 여러 아이콘을 제공하면 함께 숨기거나 표시합니다. 여러 구역에 걸치면 더 잘 보이는 구역이 우선합니다.
-- Apple 시스템 앱과 위치를 확인하지 못한 앱은 숨기지 않습니다. 시계, 제어 센터, 네트워크 등 시스템 항목은 보호 대상입니다.
+- 시스템 앱과 위치를 확인하지 못한 앱은 숨기지 않습니다. 시계, 제어 센터, 네트워크 등 시스템 항목은 보호 대상입니다.
 - 실행 중인 앱 또는 디스플레이 구성이 바뀌면 전체 표시로 복원합니다. 화살표를 눌러 다시 적용하세요.
 - `/Applications/Quiet Bar.app` 또는 `~/Applications/Quiet Bar.app`에서 실행하며, LaunchServices가 같은 복사본을 가리켜야 숨김을 적용합니다.
-- 비공개 API는 macOS 업데이트에 따라 바뀔 수 있습니다. 제공 여부, 활성화 오류, 지연 응답을 확인하고 실패하면 전체 표시로 복원하도록 구현했습니다. 미래 OS 호환성을 보장하지 않습니다.
+- 문서화되지 않은 시스템 인터페이스는 macOS 업데이트에 따라 바뀔 수 있습니다. 제공 여부, 활성화 오류, 지연 응답을 확인하고 실패하면 전체 표시로 복원하도록 구현했습니다. 미래 OS 호환성을 보장하지 않습니다.
 - macOS 13–26의 기존 길이 확장 엔진도 포함하지만 해당 OS에서의 실제 동작은 아직 검증하지 않았습니다.
 
 ## 테스트와 진단
@@ -75,15 +76,15 @@ Finder에서 `Quiet Bar.app`을 응용 프로그램 폴더로 드래그하고 �
 "build/Quiet Bar.app/Contents/MacOS/Quiet Bar" --diagnose
 ```
 
-GUI 상세 진단은 화살표 **⌥-우클릭 → 진단 정보…** 에서 확인합니다. `--diagnose`는 OS, 앱 경로, 비공개 API 존재 여부, 권한 허용 여부만 출력합니다. 메뉴 막대 항목이나 숨김 세션을 만들지 않습니다.
+GUI 상세 진단은 화살표 **⌥-우클릭 → 진단 정보…** 에서 확인합니다. `--diagnose`는 OS, 앱 경로, 문서화되지 않은 시스템 인터페이스 존재 여부, 권한 허용 여부만 출력합니다. 메뉴 막대 항목이나 숨김 세션을 만들지 않습니다.
 
-0.1.3 검증 기록(2026-10-19): 드래그 판정·일반 구역 갱신 테스트 18개를 추가해 전체 코어 테스트 **32개 통과**, Release arm64/x86_64 빌드 성공. 설치된 앱의 한글 일반·정보 화면과 요청된 링크 3개를 확인했습니다. 실제 ⌘-드래그 자동 반영은 별도 실기 확인 대상입니다. 상세 범위는 [테스트 문서](docs/TESTING.md)를 참고하세요. 코어 테스트는 실제 메뉴 막대 이벤트나 비공개 API 동작을 대신하지 않습니다.
+0.1.3 검증 기록(2026-10-19): 코어 테스트 **32개 통과**, Release arm64/x86_64 빌드 성공. 설치된 앱의 한국어 설정·정보 화면을 확인했습니다. 실제 ⌘-드래그 자동 반영은 아직 검증하지 않았습니다. 상세 범위는 [테스트 문서](docs/TESTING.md)를 참고하세요. 코어 테스트는 실제 메뉴 막대 이벤트나 문서화되지 않은 시스템 인터페이스 동작을 대신하지 않습니다.
 
 ## 문서
 
 - [빌드·실행·서명](docs/BUILDING.md)
 - [코드 구조와 상태 전이](docs/ARCHITECTURE.md)
-- [Golden Gate 호환성 결정](docs/MACOS27.md)
+- [macOS 27 호환성](docs/MACOS27.md)
 - [테스트와 검증 기록](docs/TESTING.md)
 - [문제 해결과 복원](docs/TROUBLESHOOTING.md)
 - [기능 범위와 후속 작업](docs/ROADMAP.md)
@@ -96,7 +97,7 @@ GUI 상세 진단은 화살표 **⌥-우클릭 → 진단 정보…** 에서 확
 QuietBar.xcodeproj/       앱 빌드 및 실행 스킴
 Sources/QuietBar/         AppKit 상태 항목, SwiftUI 설정, 권한·단축키·로그인 실행
 Sources/QuietBarCore/     순수 위치 분류 및 비동기 숨김 세션
-Native/                  비공개 API를 격리한 작은 Objective-C 브리지
+Native/                  문서화되지 않은 시스템 인터페이스를 격리한 작은 Objective-C 브리지
 Tests/QuietBarCoreTests/  실제 메뉴 막대를 변경하지 않는 단위 테스트
 Resources/               앱 아이콘
 scripts/                 빌드·테스트·아이콘 생성
@@ -104,4 +105,4 @@ docs/                    설계, 호환성, 운영 문서
 Package.swift            코어 라이브러리와 테스트만 포함; 앱은 Xcode 프로젝트로 빌드
 ```
 
-앱 자체의 네트워크 요청, 분석 수집, 외부 런타임 의존성은 없습니다. 정보 탭의 링크를 누르면 기본 브라우저 또는 메일 앱이 열립니다. 원본 Hidden Bar의 UI 이미지나 상표를 앱 리소스로 복제하지 않았습니다. macOS 27 런타임 연결 방식의 참고 자료와 MIT 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 있습니다.
+앱 자체의 네트워크 요청, 분석 수집, 외부 런타임 의존성은 없습니다. 정보 탭의 링크를 누르면 기본 브라우저 또는 메일 앱이 열립니다. 외부 코드에 관한 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 있습니다.

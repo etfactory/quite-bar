@@ -160,8 +160,8 @@ final class OrdinaryMembershipRefreshTests: XCTestCase {
         XCTAssertEqual(layout.hiddenBundles(collapsed: false), ["permanent"])
     }
 
-    func testFreshInventoryProtectsSelfAppleAndInvalidOrOtherDisplayItems() throws {
-        let layout = try refresh([item(ownID, 700), item("com.apple.ControlCenter", 700),
+    func testFreshInventoryProtectsSelfSystemAndInvalidOrOtherDisplayItems() throws {
+        let layout = try refresh([item(ownID, 700), item("com.apple.example.systemItem", 700),
             item("", 700), item("otherDisplay", 2100), item("otherRow", 700, y: 100),
             BarItem(bundleID: "invalid", frame: .zero), item("valid", 800)], previous: [:])
         XCTAssertEqual(layout.sections, ["valid": .hidden])

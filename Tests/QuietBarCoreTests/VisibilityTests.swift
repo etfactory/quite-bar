@@ -24,13 +24,13 @@ import XCTest
 
 final class VisibilityTests: XCTestCase {
     private let layout = BarLayout(sections: ["hidden": .hidden, "permanent": .alwaysHidden, "visible": .shown])
-    private let owners: Set<String> = ["self", "hidden", "permanent", "visible", "unknown", "com.apple.MenuBarAgent"]
+    private let owners: Set<String> = ["self", "hidden", "permanent", "visible", "unknown", "com.apple.example.systemItem"]
 
     @MainActor func testAllowListKeepsSystemUnknownAndSelf() async {
         let driver = Driver()
         let session = VisibilitySession(driver: driver)
         session.apply(layout: layout, runningBundles: owners, ownID: "self", collapsed: true)
-        XCTAssertEqual(Set(driver.requests[0].bundles), ["visible", "unknown", "com.apple.MenuBarAgent", "self"])
+        XCTAssertEqual(Set(driver.requests[0].bundles), ["visible", "unknown", "com.apple.example.systemItem", "self"])
         XCTAssertEqual(session.state, .applying)
         driver.succeed(0)
         XCTAssertEqual(session.state, .collapsed)

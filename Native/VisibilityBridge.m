@@ -1,4 +1,4 @@
-// Runtime interface informed by Hidden Bar's MIT-licensed native shim.
+// Runtime interface adapted from MIT-licensed code.
 // Attribution and full license: THIRD_PARTY_NOTICES.md.
 #import "VisibilityBridge.h"
 #import <dlfcn.h>

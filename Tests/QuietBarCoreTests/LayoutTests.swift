@@ -22,8 +22,8 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(layout.sections, ["a": .alwaysHidden, "b": .hidden, "c": .shown])
     }
 
-    func testProtectsAppleOwnInvalidAndOtherDisplayItems() throws {
-        let layout = try LayoutResolver.resolve(items: [item("self", 100), item("com.apple.ControlCenter", 200),
+    func testProtectsSystemOwnInvalidAndOtherDisplayItems() throws {
+        let layout = try LayoutResolver.resolve(items: [item("self", 100), item("com.apple.example.systemItem", 200),
             item("otherDisplay", 2100), item("otherRow", 300, y: 400), item("", 100),
             BarItem(bundleID: "invalid", frame: .zero), item("valid", 500)],
             boundary: rect(1000), permanent: nil, screen: screen, leftToRight: true, ownID: "self")

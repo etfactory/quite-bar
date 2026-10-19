@@ -1,14 +1,8 @@
-# 외부 코드 및 참고 자료
+# 외부 코드 고지
 
-## Hidden Bar
+## 런타임 브리지
 
-프로젝트: https://github.com/dwarvesf/hidden
-
-참고 버전: `v1.11.1`, 네이티브 엔진 커밋 `546892a7508dd08dc2782de7e6429963f0d7e78f`.
-
-`Native/VisibilityBridge.m`의 런타임 인터페이스는 Hidden Bar의 `HBNativeVisibilityShim.m`에 공개된 클래스·selector, 배열 구성 및 예외 처리 방식을 참고·변형했습니다. AXExtrasMenuBar를 통한 위치 조사 및 앱 단위 제어 제약도 해당 구현을 참고했습니다. 원본 UI 리소스, 아이콘, 스토리보드 및 원본 앱 번들 식별자는 사용하지 않습니다.
-
-원본 라이선스: [MIT](https://github.com/dwarvesf/hidden/blob/v1.11.1/LICENSE).
+`Native/VisibilityBridge.m`에는 외부 MIT 라이선스 코드를 참고·수정한 런타임 인터페이스가 포함되어 있습니다. 해당 부분의 저작권 및 라이선스 고지는 다음과 같습니다.
 
 ```text
 MIT License
@@ -34,4 +28,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-SwiftUI、AppKit、SF Symbols 등 Apple SDK 구성 요소에는 Apple의 각 사용 조건이 적용됩니다. Apple의 비공개 프레임워크는 앱에 복사하거나 재배포하지 않고 설치된 OS에서 런타임으로 찾습니다.
+## 시스템 구성 요소
+
+앱에서 사용하는 SDK와 시스템 구성 요소에는 각 제공자의 사용 조건이 적용됩니다. 시스템 프레임워크는 앱에 포함하거나 재배포하지 않고 설치된 운영체제에서 런타임으로 찾습니다.

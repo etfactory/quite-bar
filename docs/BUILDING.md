@@ -2,15 +2,16 @@
 
 ## 요구 사항
 
-- macOS 13 이상. Golden Gate 경로는 macOS 27 이상에서 선택합니다.
+- macOS 13 이상. macOS 27 이상에서는 별도의 가시성 제한 엔진을 선택합니다.
 - Swift 6.0 이상을 제공하는 Xcode. 검증 환경은 Xcode 27.0 / Swift 6.4입니다.
 - 외부 의존성 없음. AppKit, SwiftUI, ApplicationServices, Carbon, ServiceManagement만 사용합니다.
 - 앱 언어 모드는 Swift 5, 코어 패키지 언어 모드는 Swift 6입니다. 코어의 비동기 상태는 MainActor로 격리했습니다.
 
 ## 로컬 앱 생성
 
+저장소를 내려받은 디렉터리에서 실행합니다.
+
 ```bash
-cd /Users/factory/Documents/Projects/QuietBar
 ./scripts/build.sh
 ```
 
@@ -24,15 +25,15 @@ CONFIGURATION=Debug ./scripts/build.sh
 QUIETBAR_BUILD_DIR=/tmp/quietbar-development ./scripts/build.sh
 ```
 
-Documents의 파일 공급자가 복사 직후 `FinderInfo`를 다시 붙이는 환경에서는 `build/` 복사본의 서명 검증이 실패할 수 있습니다. 이때 빌드 로그에 있는 임시 경로의 서명된 앱을 `ditto --norsrc --noextattr`로 `/Applications`에 복사한 뒤 설치본을 검증하세요. 0.1.3 검증에서는 이 현상을 관찰했으며, 실제 설치본과 별도 배포 복사본은 서명 검증을 통과했습니다.
+Documents의 파일 공급자가 복사 직후 `FinderInfo`를 다시 붙이는 환경에서는 `build/` 복사본의 서명 검증이 실패할 수 있습니다. 이때 빌드 로그에 있는 임시 경로의 서명된 앱을 `ditto --norsrc --noextattr`로 `/Applications`에 복사한 뒤 설치본의 서명을 검증하세요.
 
-생성한 앱을 Finder로 `/Applications` 또는 `~/Applications`에 옮겨 실행합니다. 현재 실행 경로와 LaunchServices의 번들 해석 경로가 같은지 확인한 다음에만 네이티브 숨김을 적용합니다. Xcode 빌드 산출물에서는 설정 UI를 확인할 수 있지만 macOS 27 실제 숨김은 설치 경로 확인에 막힙니다.
+생성한 앱을 `/Applications` 또는 `~/Applications`에 옮겨 실행합니다. 현재 실행 경로와 LaunchServices의 번들 해석 경로가 같은지 확인한 다음에만 네이티브 숨김을 적용합니다. Xcode 빌드 산출물에서는 설정 UI를 확인할 수 있지만 macOS 27 실제 숨김은 설치 경로 확인에 막힙니다.
 
 ## Xcode
 
 `QuietBar.xcodeproj`를 열고 `QuietBar` 스킴에서 `My Mac`을 선택합니다. 프로젝트는 Debug와 Release, 공유 스킴을 포함합니다. 기본 서명은 로컬 개발용 ad-hoc입니다. 배포용으로 바꿀 때는 Signing & Capabilities에서 본인의 팀과 인증서를 지정하세요.
 
-App Sandbox는 끈 상태입니다. 켜면 macOS 27에서 필요한 다른 앱의 AX 정보 읽기가 막힙니다. 비공개 프레임워크는 링크 단계에서 연결하지 않고 런타임에 선택적으로 로드합니다.
+App Sandbox는 끈 상태입니다. 켜면 macOS 27에서 필요한 다른 앱의 AX 정보 읽기가 막힙니다. 문서화되지 않은 시스템 프레임워크는 링크 단계에서 연결하지 않고 런타임에 선택적으로 로드합니다.
 
 ## 테스트
 
@@ -51,9 +52,11 @@ QUIETBAR_COMPILER_NO_SANDBOX=1 ./scripts/build.sh
 QUIETBAR_COMPILER_NO_SANDBOX=1 ./scripts/test.sh
 ```
 
-일반 Mac에서는 기본 명령을 먼저 사용하세요. 이 작업의 자동화 환경에서는 위 옵션을 사용했습니다.
+기본 명령으로 실패하는 경우에만 이 옵션을 사용하세요.
 
 ## 아이콘
+
+`THIRD_PARTY_NOTICES.md`는 앱 번들의 Resources에도 복사됩니다. 배포할 때 기존 저작권 및 라이선스 고지를 함께 포함합니다.
 
 `Resources/AppIcon.icns`는 포함되어 있습니다. AppKit 벡터 드로잉으로 재생성할 수 있습니다.
 
@@ -63,4 +66,4 @@ xcrun swift scripts/make-icon.swift Resources
 
 ## 배포 범위
 
-이 빌드는 Developer ID 서명이나 공증을 거치지 않은 개인용 로컬 빌드입니다. 다른 Mac에 배포하려면 본인의 Developer ID로 서명하고 Apple 공증을 별도로 진행해야 합니다. 비공개 API 사용 때문에 현재 구현은 Mac App Store 제출용이 아닙니다. 자동 업데이터와 배포 파이프라인은 포함하지 않습니다.
+제공 빌드 스크립트는 로컬 ad-hoc 서명을 사용하며 Developer ID 서명이나 공증을 수행하지 않습니다. 배포용 앱의 Developer ID 서명과 Apple 공증은 별도 절차로 진행해야 합니다. 문서화되지 않은 시스템 인터페이스 사용 때문에 현재 구현은 Mac App Store 제출용이 아닙니다. 자동 업데이터와 배포 파이프라인은 포함하지 않습니다.
