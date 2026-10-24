@@ -5,6 +5,7 @@ build_root="${QUIETBAR_BUILD_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/quietbar-build.XX
 config="${CONFIGURATION:-Release}"
 compiler_flags='$(inherited)'
 # Optional only for environments that prohibit nested compiler-plugin sandboxes.
+# 컴파일러 플러그인의 중첩 샌드박스 실행을 금지하는 환경에서만 사용하는 선택 옵션입니다.
 if [[ "${QUIETBAR_COMPILER_NO_SANDBOX:-0}" == "1" ]]; then
     compiler_flags="$compiler_flags -disable-sandbox"
 fi
@@ -13,6 +14,7 @@ xcodebuild -project "$project_root/QuietBar.xcodeproj" -scheme QuietBar \
     CODE_SIGNING_ALLOWED=NO "OTHER_SWIFT_FLAGS=$compiler_flags" build
 app="$build_root/Build/Products/$config/Quiet Bar.app"
 # Finder metadata on generated bundles can prevent code signing in synced folders.
+# 동기화 폴더에서 생성한 앱에 붙는 파일 메타데이터가 코드 서명을 방해할 수 있습니다.
 xattr -dr com.apple.FinderInfo "$app" 2>/dev/null || true
 codesign --force --deep --sign - --timestamp=none "$app"
 codesign --verify --deep --strict "$app"

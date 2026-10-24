@@ -188,6 +188,7 @@ struct PreferencesView: View {
     private var actionError: String? {
         if let error = login.error ?? controller.shortcutError { return error }
         // Restoration notices belong to the app's status, rather than this compact settings view.
+        // 복원 안내는 앱 상태로 관리하고 간결한 설정 화면에는 표시하지 않습니다.
         guard let message = controller.message,
               !message.contains("전체 표시로 복원했습니다.") else { return nil }
         return message

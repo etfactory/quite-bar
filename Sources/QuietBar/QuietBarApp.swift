@@ -13,6 +13,7 @@ import SwiftUI
         }
         let app = NSApplication.shared
         // Launching a second copy must not create competing visibility restrictions.
+        // 두 번째 앱 복사본을 실행해도 서로 충돌하는 숨김 제한을 만들지 않게 합니다.
         if let id = Bundle.main.bundleIdentifier,
            let existing = NSRunningApplication.runningApplications(withBundleIdentifier: id)
             .first(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }) {

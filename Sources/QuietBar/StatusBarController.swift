@@ -37,6 +37,12 @@ import QuietBarCore
     private var ownsMenuBarSpace = false
     private var operation = 0
     private var timer: Timer?
+    private var environmentTask: Task<Void, Never>?
+    private var environmentGeneration = 0
+    private var environmentRecoveryPending = false
+    private var environmentTogglePending = false
+    private var systemSleeping = false
+    private var displaysSleeping = false
     private var observers: [NSObjectProtocol] = []
     private var lastAlwaysHidden: Bool
     private let ownID = Bundle.main.bundleIdentifier ?? "local.quietbar.app"
@@ -57,7 +63,9 @@ import QuietBarCore
         session.onChange = { [weak self] in
             guard let self else { return }
             if self.session.lastError != nil {
+                self.cancelEnvironmentRecovery()
                 // A failed owner refresh must also invalidate older AX reads.
+                // 실행 앱 목록 갱신이 실패하면 이전 AX 읽기 결과도 무효화해야 합니다.
                 self.cancelDragUpdate()
                 self.operation += 1
                 self.timer?.invalidate()
@@ -69,6 +77,8 @@ import QuietBarCore
             self.busy = self.session.state == .applying
             // Keep the last committed presentation while a replacement lease is
             // pending. Restore the markers only once expansion actually succeeds.
+            // 새 제한 핸들을 기다리는 동안에는 마지막으로 확정된 표시 상태를 유지합니다.
+            // 펼치기가 실제로 성공한 뒤에만 구분선을 복원합니다.
             if !self.busy {
                 self.collapsed = self.session.state == .collapsed
                 self.setDividersHidden(self.collapsed)
@@ -82,20 +92,37 @@ import QuietBarCore
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
             object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.environmentChanged("디스플레이가 바뀌어 전체 표시로 복원했습니다. 배치를 확인한 뒤 다시 접어 주세요.") }
+                MainActor.assumeIsolated { self?.prepareEnvironmentRecovery() }
             })
         let workspace = NSWorkspace.shared.notificationCenter
         // Refresh only the allow list; launches and exits keep the user's layout.
+        // 허용 목록만 갱신하며, 앱 실행·종료 시 사용자의 구역 배치를 유지합니다.
         observers.append(workspace.addObserver(forName: NSWorkspace.didLaunchApplicationNotification,
             object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in
-                    guard let self, self.native else { return }
+                    guard let self, self.native, !self.environmentRecoveryPending,
+                          !self.environmentSleeping else { return }
                     self.session.refreshRunningBundles(AccessibilityInventory.runningBundles)
                 }
             })
-        observers.append(workspace.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.revealAll() }
-        })
+        for (name, sleeping) in [(NSWorkspace.willSleepNotification, true), (NSWorkspace.didWakeNotification, false)] {
+            observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.systemSleeping = sleeping
+                    self.prepareEnvironmentRecovery()
+                }
+            })
+        }
+        for (name, sleeping) in [(NSWorkspace.screensDidSleepNotification, true), (NSWorkspace.screensDidWakeNotification, false)] {
+            observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.displaysSleeping = sleeping
+                    self.prepareEnvironmentRecovery()
+                }
+            })
+        }
         installDragMonitors()
     }
 
@@ -124,6 +151,7 @@ import QuietBarCore
         else { lines.append("분류 좌표 없음") }
         lines.append(inventorySummary)
         lines.append("자동 배치 반영: \(dragStatus) · 마우스 모니터 \(mouseMonitors.count)개")
+        lines.append("환경 복구: \(environmentRecoveryPending) · 시스템 절전 \(systemSleeping) · 화면 절전 \(displaysSleeping)")
         if let layout {
             lines.append("분류: \(layout.sections.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value.rawValue)" }.joined(separator: ", "))")
         }
@@ -157,11 +185,18 @@ import QuietBarCore
 
     func toggle() {
         cancelDragUpdate()
+        if environmentRecoveryPending {
+            // Preserve the ordinary arrow action, including always-hidden items.
+            // 항상 숨김 구역을 유지하는 일반 화살표 동작을 보존합니다.
+            environmentTogglePending.toggle()
+            return
+        }
         if busy { revealAll(); return }
         if collapsed { expand() } else { collapse() }
     }
 
     func collapse() {
+        guard !environmentSleeping, !environmentRecoveryPending else { return }
         cancelDragUpdate()
         timer?.invalidate()
         refreshPermission()
@@ -208,6 +243,7 @@ import QuietBarCore
     }
 
     func expand() {
+        guard !environmentSleeping, !environmentRecoveryPending else { return }
         cancelDragUpdate()
         operation += 1
         busy = false
@@ -227,6 +263,7 @@ import QuietBarCore
     }
 
     func revealAll() {
+        cancelEnvironmentRecovery()
         cancelDragUpdate()
         releaseMenuBarSpace()
         operation += 1
@@ -249,6 +286,8 @@ import QuietBarCore
         windowVisible = false
         // Command-drag applies membership on release. Merely closing the
         // window keeps an untouched arrangement visible until the arrow click.
+        // ⌘-드래그한 구역은 키를 놓으면 반영합니다. 배치를 바꾸지 않고 창만 닫았다면
+        // 화살표를 누를 때까지 현재 배치를 표시한 상태로 유지합니다.
         if !arranging { scheduleAutoHide() }
     }
 
@@ -265,11 +304,101 @@ import QuietBarCore
     }
 
     private func apply(_ layout: BarLayout, collapsed: Bool) {
+        cancelEnvironmentRecovery()
         session.apply(layout: layout, runningBundles: AccessibilityInventory.runningBundles,
                       ownID: ownID, collapsed: collapsed)
     }
 
     private func environmentChanged(_ reason: String) { revealAll(); message = reason }
+
+    private var environmentSleeping: Bool { systemSleeping || displaysSleeping }
+
+    private func cancelEnvironmentRecovery(preservingToggle: Bool = false) {
+        environmentGeneration += 1
+        environmentTask?.cancel()
+        environmentTask = nil
+        environmentRecoveryPending = false
+        if !preservingToggle { environmentTogglePending = false }
+    }
+
+    private func prepareEnvironmentRecovery() {
+        cancelEnvironmentRecovery(preservingToggle: true)
+        environmentRecoveryPending = true
+        cancelDragUpdate()
+        operation += 1
+        timer?.invalidate()
+        timer = nil
+        legacyGeometry = nil
+        if native { session.suspendForEnvironmentChange() }
+        // A canceled AX snapshot must not leave the controller busy forever.
+        // 취소한 AX 위치 수집 때문에 적용 중 상태가 계속 남지 않게 합니다.
+        busy = native && session.state == .applying
+        guard !environmentSleeping else { return }
+        scheduleEnvironmentRecovery(generation: environmentGeneration, attempt: 0)
+    }
+
+    private func scheduleEnvironmentRecovery(generation: Int, attempt: Int) {
+        environmentTask?.cancel()
+        environmentTask = Task { [weak self] in
+            do {
+                // Coalesce screen migration notifications before touching the host.
+                // 호스트를 갱신하기 전에 연속으로 도착한 화면 전환 알림을 모아 처리합니다.
+                try await Task.sleep(nanoseconds: UInt64(attempt + 1) * 500_000_000)
+            } catch { return }
+            guard let self, !Task.isCancelled, generation == self.environmentGeneration,
+                  self.environmentRecoveryPending, !self.environmentSleeping else { return }
+            self.environmentTask = nil
+            self.restoreEnvironment(generation: generation, attempt: attempt)
+        }
+    }
+
+    private func restoreEnvironment(generation: Int, attempt: Int) {
+        if !native {
+            if collapsed {
+                divider.length = collapseLength
+                permanent?.length = 18
+            } else {
+                divider.length = 18
+                if preferences.alwaysHidden, (permanent?.length ?? 18) > 18 {
+                    permanent?.length = collapseLength
+                }
+            }
+            finishEnvironmentRecovery(generation: generation)
+            return
+        }
+        refreshPermission()
+        guard generation == environmentGeneration, environmentRecoveryPending else { return }
+        if session.hasVisibilityPlan && !nativeReady() {
+            session.fail(message ?? "화면 환경 변경 후 숨김을 다시 적용할 수 없습니다.")
+            return
+        }
+        session.reapplyAfterEnvironmentChange(AccessibilityInventory.runningBundles) { [weak self] result in
+            guard let self, generation == self.environmentGeneration,
+                  self.environmentRecoveryPending, !self.environmentSleeping else { return }
+            switch result {
+            case .success:
+                self.finishEnvironmentRecovery(generation: generation)
+            case .failure(let error):
+                if attempt < 2 {
+                    self.scheduleEnvironmentRecovery(generation: generation, attempt: attempt + 1)
+                } else {
+                    self.session.fail("화면 환경 변경 후 숨김 복구에 실패했습니다: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func finishEnvironmentRecovery(generation: Int) {
+        guard generation == environmentGeneration else { return }
+        let shouldToggle = environmentTogglePending
+        environmentTogglePending = false
+        environmentRecoveryPending = false
+        busy = native && session.state == .applying
+        setDividersHidden(collapsed, force: true)
+        updateIcon()
+        if shouldToggle { toggle() }
+        else { scheduleAutoHide() }
+    }
 
     private func nativeReady() -> Bool {
         guard installed else {
@@ -279,6 +408,7 @@ import QuietBarCore
         guard authorized else { message = "기기 제어 및 데이터 접근을 허용한 뒤 다시 시도해 주세요."; return false }
         guard session.available else { message = "이 macOS에서 숨김 엔진을 사용할 수 없습니다."; return false }
         // Keep the same self-protection check for both manual and drag updates.
+        // 앱의 제어 버튼을 보호하기 위해 수동·드래그 갱신에 같은 검사를 적용합니다.
         guard let registered = NSWorkspace.shared.urlForApplication(withBundleIdentifier: ownID),
               registered.resolvingSymlinksInPath().standardizedFileURL == Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL else {
             message = "다른 Quiet Bar 복사본이 등록되어 있습니다. 응용 프로그램 폴더의 복사본만 남기고 다시 실행해 주세요."
@@ -299,6 +429,7 @@ import QuietBarCore
     }
 
     private func observeMenuBarDrag(_ event: NSEvent) {
+        guard !environmentRecoveryPending, !environmentSleeping else { dragTracker.cancel(); return }
         let point = NSEvent.mouseLocation
         switch event.type {
         case .leftMouseDown:
@@ -354,6 +485,8 @@ import QuietBarCore
             do {
                 // Holding Command permits several consecutive rearrangements.
                 // This also avoids collapsing under a still-held mouse button.
+                // ⌘ 키를 누른 동안 여러 아이콘을 연속으로 옮길 수 있게 합니다.
+                // 마우스 버튼을 누른 상태에서 메뉴 막대가 접히는 일도 막습니다.
                 while true {
                     while NSEvent.pressedMouseButtons != 0 || NSEvent.modifierFlags.contains(.command) {
                         try await Task.sleep(nanoseconds: 100_000_000)
@@ -363,7 +496,8 @@ import QuietBarCore
                 }
                 guard !Task.isCancelled, generation == self.dragGeneration else { return }
                 await self.refreshPlacementAfterDrag(generation: generation)
-            } catch { /* A manual action or another drag superseded this update. */ }
+            } catch { /* A manual action or another drag superseded this update.
+                       수동 조작 또는 새 드래그가 이 갱신을 대체했습니다. */ }
         }
     }
 
@@ -392,6 +526,8 @@ import QuietBarCore
         busy = false
         // Input may have resumed while AX was being read. Keep the current
         // visibility lease and wait for another release/debounce before applying.
+        // AX를 읽는 동안 입력이 다시 시작됐을 수 있습니다. 현재 제한 핸들을 유지하고
+        // 키와 마우스를 놓은 뒤 안정화 대기 시간이 지나면 다시 적용합니다.
         if NSEvent.pressedMouseButtons != 0 || NSEvent.modifierFlags.contains(.command) {
             scheduleDragUpdate()
             return
@@ -439,6 +575,7 @@ import QuietBarCore
         let item = NSStatusBar.system.statusItem(withLength: 18)
         item.autosaveName = name
         // No removalAllowed: users can reorder, but cannot accidentally remove their only control.
+        // removalAllowed를 켜지 않아 순서만 바꿀 수 있고 유일한 제어 버튼을 실수로 제거하지 못하게 합니다.
         item.behavior = []
         item.isVisible = true
         item.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)
@@ -476,8 +613,8 @@ import QuietBarCore
         return image
     }
 
-    private func setDividersHidden(_ hidden: Bool) {
-        guard dividersHidden != hidden else { return }
+    private func setDividersHidden(_ hidden: Bool, force: Bool = false) {
+        guard force || dividersHidden != hidden else { return }
         dividersHidden = hidden
         for (item, dotted) in [(divider, false), (permanent, true)] {
             guard let item else { continue }
@@ -487,6 +624,8 @@ import QuietBarCore
             if native {
                 // Keep each status item's slot so Cmd-drag order survives.
                 // isVisible=false would remove the item and lose its placement.
+                // ⌘-드래그한 순서를 보존하도록 각 상태 항목의 자리를 유지합니다.
+                // isVisible=false로 설정하면 항목이 제거되어 배치 정보가 사라집니다.
                 item.length = hidden ? 0 : 18
             }
         }
@@ -499,11 +638,11 @@ import QuietBarCore
 
     private typealias Geometry = StatusItemGeometry
 
-    private func geometry() -> Geometry? {
+    private func geometry(includePermanent: Bool = true) -> Geometry? {
         guard let window = divider.button?.window,
               let primary = NSScreen.screens.first else { return nil }
         var permanentFrame: CGRect?
-        if preferences.alwaysHidden {
+        if preferences.alwaysHidden && includePermanent {
             guard let w = permanent?.button?.window else { return nil }
             permanentFrame = w.frame
         }
@@ -516,7 +655,13 @@ import QuietBarCore
     private func collapseLegacy() {
         // In partial expansion the permanent separator is wide, so reuse its
         // unrestricted position rather than measuring the inflated window.
-        let candidate = (permanent?.length ?? 18) > 18 ? legacyGeometry : geometry()
+        // After screen migration a wide permanent item has no usable cached
+        // frame. Its physical slot is retained; validate the ordinary boundary.
+        // 일반 구역을 펼친 상태에서는 항상 숨김 구분선의 폭이 크므로, 늘어난 창을 측정하는 대신
+        // 제한 전의 위치를 재사용합니다. 화면 전환 뒤에는 넓어진 항상 숨김 항목의 유효한 좌표 캐시가
+        // 없습니다. 항목의 실제 자리는 유지되므로 일반 구분선의 경계를 검증합니다.
+        let candidate = (permanent?.length ?? 18) > 18
+            ? (legacyGeometry ?? geometry(includePermanent: false)) : geometry()
         guard let g = candidate, let button = toggleItem.button, let window = button.window else {
             message = LayoutError.invalidBoundary.localizedDescription
             return
@@ -555,6 +700,7 @@ import QuietBarCore
         expansionFrontApplication = nil
         ownsMenuBarSpace = false
         // Respect focus changes the user made while the bar was expanded.
+        // 메뉴 막대를 펼친 동안 사용자가 직접 전환한 앱의 포커스를 유지합니다.
         if !windowVisible, NSWorkspace.shared.frontmostApplication?.bundleIdentifier == ownID,
            let previous, !previous.isTerminated {
             previous.activate(options: [])
@@ -563,16 +709,19 @@ import QuietBarCore
 
     private func scheduleAutoHide() {
         timer?.invalidate()
-        guard preferences.autoHide, !collapsed, !arranging, !windowVisible, !busy else { return }
+        guard preferences.autoHide, !collapsed, !arranging, !windowVisible, !busy,
+              !environmentSleeping, !environmentRecoveryPending else { return }
         if native, let layout, layout.hiddenBundles(collapsed: true).isEmpty { return }
         timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(preferences.delay), repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
+                guard !self.environmentSleeping, !self.environmentRecoveryPending else { return }
                 let pointer = NSEvent.mouseLocation
                 let inBar = NSScreen.screens.contains { screen in
                     screen.frame.contains(pointer) && pointer.y >= screen.frame.maxY - max(28, NSStatusBar.system.thickness)
                 }
                 // Never collapse while the mouse is held or hovering over the menu bar.
+                // 마우스를 누르거나 포인터가 메뉴 막대에 있는 동안에는 접지 않습니다.
                 if inBar || NSEvent.pressedMouseButtons != 0 || (NSApp.isActive && !self.ownsMenuBarSpace) {
                     self.scheduleAutoHide()
                 } else { self.collapse() }

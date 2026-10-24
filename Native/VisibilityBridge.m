@@ -1,5 +1,7 @@
 // Runtime interface adapted from MIT-licensed code.
 // Attribution and full license: THIRD_PARTY_NOTICES.md.
+// MIT 라이선스 코드를 수정해 구성한 런타임 인터페이스입니다.
+// 저작권 고지와 라이선스 전문은 THIRD_PARTY_NOTICES.md를 참고하세요.
 #import "VisibilityBridge.h"
 #import <dlfcn.h>
 #import <objc/message.h>
@@ -51,7 +53,8 @@ void QBVisibilityActivate(NSArray<NSString *> *bundles, void (^completion)(id, N
         id handle = [[NSClassFromString(@"MBAssessmentModeAssertion") alloc] init];
         if (!config || !handle) { finish(nil, QBError(@"숨김 세션을 만들지 못했습니다.")); return; }
         // A hung or changed private API must not leave a delayed, invisible restriction.
-        __block BOOL settled = NO; // accessed only on the main queue
+        // 시스템 인터페이스의 응답 지연이나 변경으로 뒤늦게 보이지 않는 제한이 남지 않도록 합니다.
+        __block BOOL settled = NO; // accessed only on the main queue / 메인 큐에서만 접근합니다.
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 4 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             if (settled) return;
             settled = YES;

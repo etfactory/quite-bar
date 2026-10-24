@@ -34,6 +34,7 @@ for (points, scale) in [(16,1),(16,2),(32,1),(32,2),(128,1),(128,2),(256,1),(256
     try bitmap.representation(using: .png, properties: [:])!.write(to: iconset.appendingPathComponent(name))
 }
 // ICNS is a chunk container; writing it directly avoids external image tooling.
+// ICNS는 청크 기반 컨테이너이므로 외부 이미지 도구 없이 직접 기록합니다.
 func bigEndian(_ number: Int) -> Data {
     var value = UInt32(number).bigEndian
     return withUnsafeBytes(of: &value) { Data($0) }

@@ -39,6 +39,9 @@ public enum LayoutError: LocalizedError {
 public enum LayoutResolver {
     /// A partially expanded bar still conceals the permanent section. Those AX
     /// positions are stale: freeze that membership and re-read ordinary items only.
+    ///
+    /// 일반 구역을 펼쳐도 항상 숨김 구역은 계속 가려져 있습니다. 해당 앱의 AX 좌표는
+    /// 오래된 값일 수 있으므로 기존 구역 소속을 고정하고 일반 항목만 다시 읽습니다.
     public static func refreshingOrdinary(items: [BarItem], boundary: CGRect,
                                          screen: CGRect, leftToRight: Bool,
                                          ownID: String, previous: BarLayout) throws -> BarLayout {
@@ -51,6 +54,9 @@ public enum LayoutResolver {
 
     /// Frames are in Accessibility's global, top-left coordinate system.
     /// A bundle spanning sections uses its most visible item. Unknown owners stay visible.
+    ///
+    /// 프레임은 왼쪽 위를 원점으로 하는 Accessibility 전역 좌표계입니다. 한 앱의 아이콘이
+    /// 여러 구역에 걸치면 가장 잘 보이는 구역을 적용하고, 확인되지 않은 소유 앱은 표시합니다.
     public static func resolve(items: [BarItem], boundary: CGRect, permanent: CGRect?,
                                screen: CGRect, leftToRight: Bool, ownID: String) throws -> BarLayout {
         guard valid(boundary), screen.contains(CGPoint(x: boundary.midX, y: boundary.midY)) else {
@@ -86,6 +92,8 @@ public enum LayoutResolver {
 }
 
 /// Mouse coordinates only; no key contents or application events are retained.
+///
+/// 마우스 좌표만 보관하며, 키 입력 내용이나 앱 이벤트는 저장하지 않습니다.
 public struct MenuBarDragTracker: Sendable {
     private var origin: CGPoint?
     private var movedEnough = false
@@ -116,6 +124,10 @@ public struct MenuBarDragTracker: Sendable {
 /// NSStatusItem's hosted button can report temporary or scene-local geometry on
 /// macOS 27. Its owning window is the stable AppKit boundary. Do not trust the
 /// window.screen association during a menu-bar host migration between displays.
+///
+/// macOS 27에서는 상태 항목의 호스팅된 버튼이 일시적이거나 장면 내부의 좌표를 반환할 수 있습니다.
+/// 안정적인 AppKit 경계는 버튼을 소유한 창입니다. 메뉴 막대 호스트가 디스플레이 사이를
+/// 이동하는 동안에는 window.screen 연결 정보를 신뢰하지 않습니다.
 public struct StatusItemGeometry: Equatable, Sendable {
     public let boundary: CGRect
     public let permanent: CGRect?

@@ -47,6 +47,7 @@ import Carbon
 
     func setShortcut(code: UInt32, modifiers: UInt32, label: String) {
         // Notify once, so registration doesn't briefly use a half-updated shortcut.
+        // 갱신 중인 단축키 조합이 일시적으로 등록되지 않도록 알림을 한 번만 보냅니다.
         let notify = onChange
         onChange = nil
         shortcutCode = code

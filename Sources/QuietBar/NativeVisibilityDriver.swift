@@ -9,6 +9,7 @@ import QuietBarCore
     func activate(allowing bundles: [String], completion: @escaping @MainActor (Result<any VisibilityLease, Error>) -> Void) {
         QBVisibilityActivate(bundles) { raw, error in
             // The ObjC boundary always returns on the main queue.
+            // Objective-C 브리지의 완료 콜백은 항상 메인 큐에서 호출됩니다.
             MainActor.assumeIsolated {
                 if let raw { completion(.success(NativeLease(raw))) }
                 else { completion(.failure(error ?? NSError(domain: "QuietBar", code: 1,
