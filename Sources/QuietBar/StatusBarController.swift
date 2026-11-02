@@ -43,6 +43,10 @@ import QuietBarCore
     private var environmentTogglePending = false
     private var systemSleeping = false
     private var displaysSleeping = false
+    private var systemInteractionTask: Task<Void, Never>?
+    private var systemInteractionGeneration = 0
+    private var mouseDownGeneration = 0
+    private var systemInteractionStatus = "대기"
     private var observers: [NSObjectProtocol] = []
     private var lastAlwaysHidden: Bool
     private let ownID = Bundle.main.bundleIdentifier ?? "local.quietbar.app"
@@ -63,6 +67,7 @@ import QuietBarCore
         session.onChange = { [weak self] in
             guard let self else { return }
             if self.session.lastError != nil {
+                self.cancelSystemInteraction()
                 self.cancelEnvironmentRecovery()
                 // A failed owner refresh must also invalidate older AX reads.
                 // 실행 앱 목록 갱신이 실패하면 이전 AX 읽기 결과도 무효화해야 합니다.
@@ -81,7 +86,7 @@ import QuietBarCore
             // 펼치기가 실제로 성공한 뒤에만 구분선을 복원합니다.
             if !self.busy {
                 self.collapsed = self.session.state == .collapsed
-                self.setDividersHidden(self.collapsed)
+                self.setDividersHidden(self.collapsed && !self.session.systemInteractionSuspended)
                 if self.collapsed { self.releaseMenuBarSpace() }
                 else if !self.arranging { self.claimMenuBarSpace() }
             }
@@ -152,6 +157,8 @@ import QuietBarCore
         lines.append(inventorySummary)
         lines.append("자동 배치 반영: \(dragStatus) · 마우스 모니터 \(mouseMonitors.count)개")
         lines.append("환경 복구: \(environmentRecoveryPending) · 시스템 절전 \(systemSleeping) · 화면 절전 \(displaysSleeping)")
+        lines.append("알림 센터: 제한 일시 해제 \(session.systemInteractionSuspended) · 창 표시 \(String(describing: NotificationCenterSupport.isPresented()))")
+        lines.append("알림 센터 처리: \(systemInteractionStatus) · \(NotificationCenterSupport.lastClockProbe)")
         if let layout {
             lines.append("분류: \(layout.sections.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value.rawValue)" }.joined(separator: ", "))")
         }
@@ -191,6 +198,7 @@ import QuietBarCore
             environmentTogglePending.toggle()
             return
         }
+        cancelSystemInteraction()
         if busy { revealAll(); return }
         if collapsed { expand() } else { collapse() }
     }
@@ -204,6 +212,10 @@ import QuietBarCore
         arranging = false
         if !native { collapseLegacy(); return }
         guard nativeReady() else { return }
+        if session.systemInteractionSuspended, let layout {
+            apply(layout, collapsed: true)
+            return
+        }
         if let layout, session.state == .partial {
             apply(layout, collapsed: true)
             return
@@ -244,6 +256,7 @@ import QuietBarCore
 
     func expand() {
         guard !environmentSleeping, !environmentRecoveryPending else { return }
+        cancelSystemInteraction()
         cancelDragUpdate()
         operation += 1
         busy = false
@@ -263,6 +276,7 @@ import QuietBarCore
     }
 
     func revealAll() {
+        cancelSystemInteraction()
         cancelEnvironmentRecovery()
         cancelDragUpdate()
         releaseMenuBarSpace()
@@ -304,6 +318,7 @@ import QuietBarCore
     }
 
     private func apply(_ layout: BarLayout, collapsed: Bool) {
+        cancelSystemInteraction()
         cancelEnvironmentRecovery()
         session.apply(layout: layout, runningBundles: AccessibilityInventory.runningBundles,
                       ownID: ownID, collapsed: collapsed)
@@ -394,7 +409,7 @@ import QuietBarCore
         environmentTogglePending = false
         environmentRecoveryPending = false
         busy = native && session.state == .applying
-        setDividersHidden(collapsed, force: true)
+        setDividersHidden(collapsed && !session.systemInteractionSuspended, force: true)
         updateIcon()
         if shouldToggle { toggle() }
         else { scheduleAutoHide() }
@@ -420,16 +435,24 @@ import QuietBarCore
     private func installDragMonitors() {
         let mask: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
         if let monitor = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] event in
-            MainActor.assumeIsolated { self?.observeMenuBarDrag(event) }
+            MainActor.assumeIsolated {
+                self?.observeSystemInteraction(event)
+                self?.observeMenuBarDrag(event)
+            }
         }) { mouseMonitors.append(monitor) }
         if let monitor = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
-            MainActor.assumeIsolated { self?.observeMenuBarDrag(event) }
+            MainActor.assumeIsolated {
+                self?.observeSystemInteraction(event)
+                self?.observeMenuBarDrag(event)
+            }
             return event
         }) { mouseMonitors.append(monitor) }
     }
 
     private func observeMenuBarDrag(_ event: NSEvent) {
-        guard !environmentRecoveryPending, !environmentSleeping else { dragTracker.cancel(); return }
+        guard !environmentRecoveryPending, !environmentSleeping, !session.systemInteractionSuspended else {
+            dragTracker.cancel(); return
+        }
         let point = NSEvent.mouseLocation
         switch event.type {
         case .leftMouseDown:
@@ -460,6 +483,96 @@ import QuietBarCore
             }
         default: break
         }
+    }
+
+    private func observeSystemInteraction(_ event: NSEvent) {
+        guard event.type == .leftMouseDown else { return }
+        mouseDownGeneration += 1
+        guard native, authorized, !busy, !environmentSleeping, !environmentRecoveryPending,
+              !session.systemInteractionSuspended, session.hasVisibilityPlan,
+              event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty else { return }
+        let point = NSEvent.mouseLocation
+        guard NSScreen.screens.contains(where: {
+            $0.frame.contains(point) && point.y >= $0.frame.maxY - max(28, NSStatusBar.system.thickness)
+        }), let clock = NotificationCenterSupport.clock(at: point) else { return }
+        let wasPresented = NotificationCenterSupport.isPresented() == true
+        guard session.suspendForSystemInteraction() else { return }
+        systemInteractionStatus = "시계 클릭 · 제한 일시 해제"
+        cancelDragUpdate()
+        operation += 1
+        timer?.invalidate()
+        timer = nil
+        setDividersHidden(false)
+        cancelSystemInteraction()
+        let generation = systemInteractionGeneration
+        let clickGeneration = mouseDownGeneration
+        systemInteractionTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                while NSEvent.pressedMouseButtons & 1 != 0 {
+                    try await Task.sleep(nanoseconds: 20_000_000)
+                }
+                // Give the original click a chance to open the panel before replaying it.
+                // 원래 클릭으로 창이 열릴 수 있으므로 잠시 기다려 이중 클릭으로 닫히지 않게 합니다.
+                try await Task.sleep(nanoseconds: 300_000_000)
+                guard generation == self.systemInteractionGeneration else { return }
+                let seenPanel = wasPresented || NotificationCenterSupport.isPresented() == true
+                if !seenPanel, self.mouseDownGeneration == clickGeneration,
+                   !self.environmentSleeping, !self.environmentRecoveryPending {
+                    let pressed = NotificationCenterSupport.press(clock)
+                    self.systemInteractionStatus = "시계 동작 재요청: \(pressed)"
+                }
+                let deadline = Date().addingTimeInterval(3)
+                var closedSamples = 0
+                var unknownSamples = 0
+                while generation == self.systemInteractionGeneration {
+                    try await Task.sleep(nanoseconds: 200_000_000)
+                    guard !self.environmentSleeping, !self.environmentRecoveryPending else { continue }
+                    switch NotificationCenterSupport.isPresented() {
+                    case true?:
+                        // Reapply after opening, without a key event that might dismiss the panel.
+                        // 창을 닫을 수 있는 키 입력 없이, 알림 센터가 열린 직후 숨김을 재적용합니다.
+                        self.finishSystemInteraction(generation: generation)
+                        return
+                    case false?:
+                        unknownSamples = 0
+                        closedSamples += 1
+                        if (seenPanel && closedSamples >= 2) || (!seenPanel && Date() >= deadline) {
+                            self.finishSystemInteraction(generation: generation)
+                            return
+                        }
+                    case nil:
+                        // Unknown window state must not be treated as a closed panel.
+                        // 창 상태를 읽을 수 없을 때 알림 센터가 닫힌 것으로 판단하지 않습니다.
+                        closedSamples = 0
+                        unknownSamples += 1
+                        if unknownSamples >= 25 {
+                            self.systemInteractionTask = nil
+                            self.systemInteractionStatus = "창 확인 실패 · 전체 표시"
+                            self.session.fail("알림 센터의 창 상태를 확인하지 못해 전체 표시로 복원했습니다.")
+                            return
+                        }
+                    }
+                }
+            } catch { /* A newer user action owns restoration. / 이후 사용자 조작이 복구를 담당합니다. */ }
+        }
+    }
+
+    private func cancelSystemInteraction() {
+        systemInteractionGeneration += 1
+        systemInteractionTask?.cancel()
+        systemInteractionTask = nil
+    }
+
+    private func finishSystemInteraction(generation: Int) {
+        guard generation == systemInteractionGeneration else { return }
+        systemInteractionTask = nil
+        refreshPermission()
+        guard generation == systemInteractionGeneration else { return }
+        session.resumeAfterSystemInteraction(AccessibilityInventory.runningBundles)
+        systemInteractionStatus = "시계 처리 완료 · 기존 숨김 계획 복원 요청"
+        setDividersHidden(collapsed)
+        scheduleAutoHide()
     }
 
     private func cancelDragUpdate(preservingPlacement: Bool = false) {
@@ -710,12 +823,13 @@ import QuietBarCore
     private func scheduleAutoHide() {
         timer?.invalidate()
         guard preferences.autoHide, !collapsed, !arranging, !windowVisible, !busy,
-              !environmentSleeping, !environmentRecoveryPending else { return }
+              !environmentSleeping, !environmentRecoveryPending, !session.systemInteractionSuspended else { return }
         if native, let layout, layout.hiddenBundles(collapsed: true).isEmpty { return }
         timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(preferences.delay), repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                guard !self.environmentSleeping, !self.environmentRecoveryPending else { return }
+                guard !self.environmentSleeping, !self.environmentRecoveryPending,
+                      !self.session.systemInteractionSuspended else { return }
                 let pointer = NSEvent.mouseLocation
                 let inBar = NSScreen.screens.contains { screen in
                     screen.frame.contains(pointer) && pointer.y >= screen.frame.maxY - max(28, NSStatusBar.system.thickness)

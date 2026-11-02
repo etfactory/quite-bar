@@ -30,6 +30,7 @@ import Foundation
     private var plan: Plan?
     private var requestedAllowed: [String]?
     private var environmentSuspended = false
+    public private(set) var systemInteractionSuspended = false
 
     public init(driver: any VisibilityDriver) { self.driver = driver }
     public var available: Bool { driver.available }
@@ -37,6 +38,7 @@ import Foundation
 
     public func apply(layout: BarLayout, runningBundles: Set<String>, ownID: String, collapsed: Bool) {
         environmentSuspended = false
+        systemInteractionSuspended = false
         let hidden = layout.hiddenBundles(collapsed: collapsed)
         guard !hidden.isEmpty else { revealAll(); return }
         let plan = Plan(hidden: hidden, ownID: ownID, collapsed: collapsed)
@@ -50,7 +52,7 @@ import Foundation
     /// 사용자의 구역 소속과 표시 상태를 바꾸지 않고 실행 앱 허용 목록을 갱신합니다.
     /// 확정된 표시 상태를 유지하는 갱신은 별도 알림 없이 처리해 AX 읽기나 드래그를 방해하지 않습니다.
     public func refreshRunningBundles(_ runningBundles: Set<String>) {
-        guard !environmentSuspended, let plan else { return }
+        guard !environmentSuspended, !systemInteractionSuspended, let plan else { return }
         let allowed = runningBundles.subtracting(plan.hidden).union([plan.ownID]).sorted()
         guard allowed != requestedAllowed else { return }
         activate(plan, runningBundles: runningBundles, showsProgress: false)
@@ -65,6 +67,27 @@ import Foundation
         environmentSuspended = true
     }
 
+    /// Release the restriction for system UI without discarding the committed layout.
+    /// 시스템 UI를 사용할 동안 확정된 구역과 표시 상태를 보존하고 제한만 해제합니다.
+    @discardableResult public func suspendForSystemInteraction() -> Bool {
+        guard !systemInteractionSuspended, plan != nil, let lease, state != .applying else { return false }
+        generation += 1
+        requestedAllowed = nil
+        systemInteractionSuspended = true
+        self.lease = nil
+        lease.invalidate()
+        return true
+    }
+
+    /// A display recovery owns reapplication while the environment is suspended.
+    /// 화면 환경 복구를 기다리는 동안에는 해당 복구 작업이 제한을 다시 적용합니다.
+    public func resumeAfterSystemInteraction(_ runningBundles: Set<String>) {
+        guard systemInteractionSuspended else { return }
+        systemInteractionSuspended = false
+        guard !environmentSuspended, let plan else { return }
+        activate(plan, runningBundles: runningBundles, showsProgress: false)
+    }
+
     /// The OS may have rebuilt the host even when the allow list is unchanged.
     /// A transient failure retains the old lease so the caller can retry.
     ///
@@ -73,6 +96,7 @@ import Foundation
     public func reapplyAfterEnvironmentChange(_ runningBundles: Set<String>,
         completion: @escaping @MainActor (Result<Void, Error>) -> Void) {
         environmentSuspended = false
+        guard !systemInteractionSuspended else { completion(.success(())); return }
         guard let plan else { completion(.success(())); return }
         activate(plan, runningBundles: runningBundles, showsProgress: false, recoveryCompletion: completion)
     }
@@ -140,6 +164,7 @@ import Foundation
         plan = nil
         requestedAllowed = nil
         environmentSuspended = false
+        systemInteractionSuspended = false
         state = .expanded
     }
 
